@@ -1,0 +1,77 @@
+"""Orchestrator: coordinates the three logo sources with priority-based early return."""
+
+import logging
+from pathlib import Path
+
+from logo_scraper.scraper.linkedin import scrape_linkedin_logo
+from logo_scraper.scraper.logodev import scrape_logodev
+from logo_scraper.scraper.website import scrape_website_logos
+from logo_scraper.utils import domain_from_url
+
+logger = logging.getLogger(__name__)
+
+
+def fetch_logos(
+    company_name,
+    website_url=None,
+    linkedin_url=None,
+    output_dir="./output",
+    logodev_api_key=None,
+):
+    """Fetch logos for a company, trying logo.dev → website → LinkedIn in that order."""
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    # TODO: this is a bad guess, should probably just skip logodev if no URL
+    domain = (
+        domain_from_url(website_url) if website_url else f"{company_name.lower()}.com"
+    )
+    result = {"company": company_name, "domain": domain, "logos": [], "errors": []}
+
+    # 1. logo.dev
+    try:
+        logos = scrape_logodev(
+            domain=website_url or domain,
+            output_dir=out,
+            api_key=logodev_api_key,
+        )
+        if logos:
+            logger.info("logo.dev found %d logo(s) for %s", len(logos), company_name)
+            result["logos"] = logos
+            return result
+    except ValueError as exc:
+        # API key missing — log and continue to next source
+        logger.warning("logo.dev skipped: %s", exc)
+        result["errors"].append(f"logodev: {exc}")
+    except Exception as exc:
+        logger.warning("logo.dev error for %s: %s", company_name, exc)
+        result["errors"].append(f"logodev: {exc}")
+
+    # 2. Website HTML scraping
+    if website_url:
+        try:
+            logos = scrape_website_logos(url=website_url, output_dir=out)
+            if logos:
+                logger.info("Website found %d logo(s) for %s", len(logos), company_name)
+                result["logos"] = logos
+                return result
+        except Exception as exc:
+            logger.warning("Website scraping error for %s: %s", company_name, exc)
+            result["errors"].append(f"website: {exc}")
+
+    # 3. LinkedIn fallback
+    if linkedin_url:
+        try:
+            logos = scrape_linkedin_logo(linkedin_url=linkedin_url, output_dir=out)
+            if logos:
+                logger.info(
+                    "LinkedIn found %d logo(s) for %s", len(logos), company_name
+                )
+                result["logos"] = logos
+                return result
+        except Exception as exc:
+            logger.warning("LinkedIn scraping error for %s: %s", company_name, exc)
+            result["errors"].append(f"linkedin: {exc}")
+
+    logger.info("No logos found for %s from any source", company_name)
+    return result
