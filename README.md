@@ -2,6 +2,10 @@
 
 Tool to download company logos. Tries 3 sources in order: logo.dev API, company website, and LinkedIn.
 
+**This project was a proof-of-concept developed in professional context. The original code was translated to English and adapted to remove sensitive informations.**
+
+The use case for this project stemmed from a friction point in our platform's onboarding flow: whenever a new company or deal was registered, analysts were required to (i) manually download the company's logo and (ii) re-upload it into the platform. This created unnecessary friction and prevented logo standardization across records. The goal of this POC was to demonstrate that this collection process could be easily automated, improving the overall user experience. For the production version, the LinkedIn scraping step was replaced by a Google Images lookup for compliance reasons.
+
 ## Setup
 
 ```bash
